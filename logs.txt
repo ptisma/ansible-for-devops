@@ -1,0 +1,142 @@
+These are my logs from following the book examples, some of the stuff is outdated.
+Running WSL2 Ubuntu 20.0.4 LTS on Win 11
+Ansible 2.15.0
+Vagrant 2.3.7
+
+CHAPTER 1
+brew install ansible
+ansible --version
+
+
+
+CHAPTER 2
+Download VirtualBox for Win 11
+Download Vagrant for WSL 2 and configure it to use the VirtualBox from Win 11
+curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg && echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list > /dev/null && sudo apt update && sudo apt install vagrant
+
+vagrant plugin install virtualbox_WSL2
+
+If you are getting connection refused ssh, edit the Vagrant file:
+Add to your Vagrantfile the following line: config.vm.network :forwarded_port, guest: 22, host: 2522, auto_correct: false, id: "ssh"
+
+If you are getting permission denied error when using SSH:
+fatal: [default]: UNREACHABLE! => {"changed": false, "msg": "Failed to connect to the host via ssh: Warning: Permanently added '[172.24.192.1]:2522' (ED25519) to the list of known hosts.\r\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\r\n@         WARNING: UNPROTECTED PRIVATE KEY FILE!          @\r\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\r\nPermissions 0777 for '/mnt/c/Users/petar/Desktop/learning/ansible-for-devops/Chapter-2/first-ansible-playbook/.vagrant/machines/default/virtualbox/private_key' are too open.\r\nIt is required that your private key files are NOT accessible by others.\r\nThis private key will be ignored.\r\nLoad key \"/mnt/c/Users/petar/Desktop/learning/ansible-for-devops/Chapter-2/first-ansible-playbook/.vagrant/machines/default/virtualbox/private_key\": bad permissions\r\nvagrant@172.24.192.1: Permission denied (publickey,password).", "unreachable": true}
+Add to your Vagrant file the following line:
+config.ssh.insert_key = false
+
+
+
+CHAPTER 3
+
+We use hosts.ini flag in every command because Ansible requires us to have the directory to be non writeable for all users then it automatically uses the .cfg file
+
+If you are getting this error from the Vagrantfile configuration:
+Vagrant cannot forward the specified ports on this VM, since they
+would collide with some other application that is already listening
+on these ports. The forwarded port to 2522 is already in use
+on the host machine.
+
+edit the config for each vm, instead of general one:
+app.vm.network :forwarded_port, guest: 22, host: 1234, auto_correct: false, id: "ssh"
+
+commands:
+ansible multi -a "hostname" --inventory hosts.ini
+ansible multi -a "df -h" --inventory hosts.ini
+ansible multi -a "free -m" --inventory hosts.ini
+ansible multi -a "date" --inventory hosts.ini
+
+Commands using ntp fail, no ntp available, use chrony
+replace with following commands:
+install chrony:
+ansible multi -b -m dnf -a "name=chrony state=present" --inventory hosts.ini
+start chrony:
+ansible multi -b -m service -a "name=chronyd state=started enabled=yes" --inventory hosts.ini
+sync times with chrony: 
+ansible multi -b -m command -a "chronyc -a makestep" --inventory hosts.ini
+ansible multi -b -m command -a "systemctl start chronyd" --inventory hosts.ini
+
+configure the application servers:
+ansible app -b -m dnf -a "name=python3-pip state=present" --inventory hosts.ini
+ansible app -b -m pip -a "executable=pip3 name=django<4 state=present" --inventory hosts.ini
+ansible app -a "python3 -m django --version" --inventory hosts.ini
+
+configure the database servers:
+ansible db -b -m dnf -a "name=mariadb-server state=present" --inventory hosts.ini
+ansible db -b -m service -a "name=mariadb state=started enabled=yes" --inventory hosts.ini
+ansible db -b -m dnf -a "name=firewalld state=present" --inventory hosts.ini
+ansible db -b -m firewalld -a "zone=database state=present permanent=yes" --inventory hosts.ini
+ansible db -b -m firewalld -a "source=192.168.56.0/24 zone=database state=enabled permanent=yes" --inventory hosts.ini
+ansible db -b -m firewalld -a "port=3306/tcp zone=database state=enabled permanent=yes" --inventory hosts.ini
+ansible db -b -m dnf -a "name=python3-PyMySQL state=present" --inventory hosts.ini
+ansible db -b -m mysql_user -a "name=django host=% password=12345 priv=*.*:ALL state=present" --inventory hosts.ini
+
+make changes to just one server:
+ansible app -b -m shell -a "systemctl status chronyd.service | grep 'active (running)'" --inventory hosts.ini
+ansible app -b -m systemd -a "name=chronyd state=restarted" --limit "192.168.56.4" --inventory hosts.ini
+ansible app -b -m systemd -a "name=chronyd state=restarted" --limit "*.4" --inventory hosts.ini
+ansible app -b -m systemd -a "name=chronyd state=restarted" --limit ~".*\.4" --inventory hosts.ini
+
+manage users and groups:
+ansible app -b -m group -a "name=admin state=present" --inventory hosts.ini
+ansible app -b -m user -a "name=johndoe group=admin createhome=yes" --inventory hosts.ini
+ansible app -b -m user -a "name=johndoe state=absent remove=yes" --inventory hosts.ini
+
+manage packages:
+ansible app -b -m package -a "name=git state=present" --inventory hosts.ini
+
+manage files and directories:
+ansible multi -m stat -a "path=/etc/environment" --inventory hosts.ini
+ansible multi -m copy -a "src=/etc/hosts dest=/tmp/hosts" --inventory hosts.ini
+ansible multi -b -m fetch -a "src=/etc/hosts dest=/tmp" --inventory hosts.ini
+ansible multi -m file -a "dest=/tmp/test mode=644 state=directory" --inventory hosts.ini
+ansible multi -b -m file -a "path=/src/ state=directory" --inventory hosts.ini
+ansible multi -b -m file -a "path=/src/file state=touch" --inventory hosts.ini
+
+ansible multi -m file -a "dest=/tmp/test state=absent" --inventory hosts.ini
+ansible multi -b -m file -a "dest=/src state=absent" --inventory hosts.ini
+
+run operations in the background:
+ansible multi -b -B 3600 -P 0 -a "yum -y update" --inventory hosts.ini
+ansible multi -b -m shell -a "ps -ef | grep j417754435126.13154" --inventory hosts.ini (not sure about this one)
+
+check log files:
+ansible multi -b -a "tail /var/log/messages" --inventory hosts.ini
+ansible multi -b -m shell -a "tail /var/log/messages | grep ansible-command | wc -l" --inventory hosts.ini
+
+manage cron jobs:
+ansible multi -b -m copy -a "src=./scripts/cron-job.sh dest=/opt/cron-job.sh" --inventory hosts.ini
+ansible multi -b -m cron -a "name='daily-cron-job-all-servers' hour=4 job='/opt/cron-job.sh'" --inventory hosts.ini 
+ansible multi -b -m cron -a "name='daily-cron-all-servers' state=absent" --inventory hosts.ini
+
+deploy a version-controlled application:
+Missing the git repo but template for command looks like this:
+ansible app -b -m git -a "repo=git://example.com/path/to/repo.git dest=/opt/myapp update=yes version=1.2.4"
+
+ansible’s SSH connection history:
+we use OpenSSH
+
+
+
+Chapter 4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

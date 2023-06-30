@@ -11,23 +11,27 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.provider :virtualbox do |v|
     v.memory = 512
     v.linked_clone = true
+    config.ssh.insert_key = false
   end
 
   # Application server 1.
   config.vm.define "app1" do |app|
     app.vm.hostname = "orc-app1.test"
     app.vm.network :private_network, ip: "192.168.56.4"
+    app.vm.network :forwarded_port, guest: 22, host: 1234, auto_correct: false, id: "ssh"
   end
 
   # Application server 2.
   config.vm.define "app2" do |app|
     app.vm.hostname = "orc-app2.test"
     app.vm.network :private_network, ip: "192.168.56.5"
+    app.vm.network :forwarded_port, guest: 22, host: 1235, auto_correct: false, id: "ssh"
   end
 
   # Database server.
   config.vm.define "db" do |db|
     db.vm.hostname = "orc-db.test"
     db.vm.network :private_network, ip: "192.168.56.6"
+    db.vm.network :forwarded_port, guest: 22, host: 1236, auto_correct: false, id: "ssh"
   end
 end
