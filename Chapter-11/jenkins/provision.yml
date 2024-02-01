@@ -1,0 +1,42 @@
+---
+- hosts: all
+  become: true
+
+  vars:
+    ansible_install_method: pip
+    firewall_allowed_tcp_ports:
+      - "22"
+      - "8080"
+    jenkins_plugins:
+      - ansicolor
+
+  pre_tasks:
+    - name: Update package cache
+      become: true
+      apt:
+        update_cache: yes
+
+    - name: Upgrade all packages
+      become: true
+      apt:
+        upgrade: yes
+        force_apt_get: yes
+    
+    - name: Install ca-certificates package
+      become: true
+      apt:
+        name: ca-certificates
+        state: present
+
+    - name: Add Jenkins repository key
+      become: true
+      apt_key:
+        keyserver: keyserver.ubuntu.com
+        id: 5BA31D57EF5975CA
+
+  roles:
+    - geerlingguy.firewall
+    - geerlingguy.pip
+    - geerlingguy.ansible
+    - geerlingguy.java
+    - geerlingguy.jenkins

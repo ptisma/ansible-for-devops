@@ -1,7 +1,11 @@
+Ansible for DevOps- server configuration management for humans, 1.edition
+
 These are my logs from following the book examples, some of the stuff is outdated.
 Running WSL2 Ubuntu 20.0.4 LTS on Win 11
 Ansible 2.15.0
 Vagrant 2.3.7
+
+Run sudo chmod o-w . in each of the root ansible projects to use the custom ansible cfg files
 
 CHAPTER 1
 brew install ansible
@@ -118,6 +122,189 @@ we use OpenSSH
 
 
 Chapter 4
+
+nodejs
+Modify Vagrantfile:
+add config.vm.network :forwarded_port, guest: 22, host: 1234, auto_correct: false, id: "ssh"
+
+drupal
+Inside the nodejs modify the Vagrantfile like other's before.
+installation fails
+
+solr
+Modify Vagrantfile:
+add config.vm.network :forwarded_port, guest: 22, host: 1234, auto_correct: false, id: "ssh"
+
+
+
+Chapter 5
+-
+
+
+
+Chapter 6
+
+nodejs-role
+Modify Vagrantfile:
+add config.vm.network :forwarded_port, guest: 22, host: 1234, auto_correct: false, id: "ssh"
+remove ansible.become = true
+
+Modify playbook.yml:
+add become: true
+
+
+galaxy-role-servers
+
+Modify Vagrantfile:
+add config.vm.network :forwarded_port, guest: 22, host: 1234, auto_correct: false, id: "ssh"
+
+run command to install third party roles:
+ansible-galaxy install -r requirements.yml
+
+
+
+Chapter 7
+
+no idea not even mentioned in the book
+
+
+
+Chapter 8
+
+lamp-infrastructure
+
+Modify Vagrantfile:
+add config.vm.network :forwarded_port, guest: 22, host: 1234, auto_correct: false, id: "ssh" to each of the hosts
+
+run command to install third party roles:
+ansible-galaxy install -r requirements.yml --force
+
+Inside the geerlingguy.mysql role the "Remove anonymous MySQL users." task is broken so its replacen with this task avoiding the mysql_user module:
+- name: Remove anonymous users from MySQL
+  ansible.builtin.shell: >
+    mysql -NBe "DELETE FROM mysql.user WHERE User = '' AND Host = '%'; FLUSH PRIVILEGES;"
+
+scrape everything doesnt work
+
+
+elk
+Modify the Vagrantfile for each of the VM:
+add config.vm.network :forwarded_port, guest: 22, host: 1234, auto_correct: false, id: "ssh" to each of the hosts
+
+Install Ansible roles locally:
+ansible-galaxy install -r requirements.yml
+
+Ansible provision sudo error:
+remove the ansible.become = true at each server level in Vagrantfile and place the become: yes parameter at the playbook level in yml file
+
+gluster
+
+Install Ansible roles locally:
+ansible-galaxy install -r requirements.yml
+
+Add hostPort attribute for each of the entry in boxes in Vagrantfile:
+:hostPort => "1234"
+
+Add the forwardingPort for each of the entry in Vagrantfile:
+config.vm.network :forwarded_port, guest: 22, host: opts[:hostPort], auto_correct: false, id: "ssh"
+
+
+
+Chapter 9
+
+deployments
+
+Install Ansible roles locally:
+ansible-galaxy install -r requirements.yml
+
+Modify Vagrantfile:
+add config.vm.network :forwarded_port, guest: 22, host: 1234, auto_correct: false, id: "ssh" to the host
+
+Ansible provision sudo error:
+remove the ansible.become = true at server level in Vagrantfile and place the become: yes parameter at the playbook level in yml file
+
+"Failed to set permissions on the temporary files Ansible needs to create when becoming an unprivileged user" error on Ensure demo application has correct user for files step:
+Add task to install acl 
+
+After that I got the error for bundle wrong version:
+add task to install bundle with specific version
+
+Then I got the error bundle exec command:
+add become:true to the command
+
+Add ansible inventory path in Vagrant file do fix the commands not being run with sudo:
+ansible.inventory_path = "inventory-ansible"
+
+it cant see it because of sudo chmod o-w . done before and this was created after
+SCRAPE broken shit
+
+deployments-rolling
+
+ansible-galaxy install -r requirements.yml
+
+deployments-balancer
+
+Add ansible_ssh_common_args='-o StrictHostKeyChecking=no' in inventory to solve the SSH error due to changed SSH key
+
+
+Chapter 10
+
+security
+works
+
+
+
+Chapter 11
+
+jenkins
+
+remove ansible.become=true in Vagrant file and add the become: true in play inside provision.yml file in order to solve the sudo error problem
+
+create the ansible.cfg to have roles installed locally
+
+run the command at the root of the jenkins folder to make the folder not writeable for "others" chmod o-w .
+
+install roles locally with ansible-galaxy install -r requirements.yml
+
+add pre_task to update the apt cache due to pip install role failing (bad URL errors)
+
+change ansible_install_method: 'pip' and ansible_pip_executable to '/usr/bin/pip3' inside the gerlingguy.ansible role to fix the error with failing ansible installation
+
+doesn't work
+
+
+Chapter 12
+
+chmod o-w .
+
+ansible-galaxy install -r requirements.yml
+
+remove ansible.become=true in Vagrantfile and add it the become:true in playbook
+
+
+Chapter 13
+
+chmod o-w .
+
+ansible-galaxy install -r requirements.yml
+
+add installation of pkg-config in www/Dockerfile
+
+
+Chapter 14
+chmod o-w .
+
+ansible-galaxy install -r requirements.yml
+
+broken
+
+
+
+
+
+
+
+
 
 
 

@@ -1,0 +1,49 @@
+---
+- hosts: lamp_db
+  become: yes
+
+  vars_files:
+    - vars.yml
+
+  pre_tasks:
+    - name: Create dynamic MySQL variables.
+      set_fact:
+        mysql_users:
+          - name: mycompany_user
+            host: "{{ groups['lamp_www'][0] }}"
+            password: secret
+            priv: "*.*:SELECT"
+          - name: mycompany_user
+            host: "{{ groups['lamp_www'][1] }}"
+            password: secret
+            priv: "*.*:SELECT"
+        mysql_replication_master: "{{ groups['a4d.lamp.db.1'][0] }}"
+  
+  tasks:
+    - name: Create database user with name 'bob' and password '12345' with all database privileges
+      community.mysql.mysql_user:
+        name: bob
+        password: 12345
+        priv: '*.*:ALL'
+        config_file: "{{ mysql_root_home }}/.my.cnf"
+        state: present
+    - name: Ensure default user is present.
+      mysql_user:
+        name: root
+        host: 'localhost'
+        password: root
+        priv: '*.*:ALL,GRANT'
+        state: present
+    # - name: Ensure MySQL users are present.
+    #   mysql_user:
+    #     name: "{{ item.name }}"
+    #     host: "{{ item.host | default('localhost') }}"
+    #     password: "{{ item.password }}"
+    #     priv: "{{ item.priv | default('*.*:USAGE') }}"
+    #     state: "{{ item.state | default('present') }}"
+    #     append_privs: "{{ item.append_privs | default('no') }}"
+    #     encrypted: "{{ item.encrypted | default('no') }}"
+    #   with_items: "{{ mysql_users }}"
+  # roles:
+  #   - geerlingguy.firewall
+  #   - geerlingguy.mysql
